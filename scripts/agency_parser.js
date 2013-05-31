@@ -1,10 +1,11 @@
-var fs = require('fs');
+var fs = require('graceful-fs');
 var csv = require('csv');
 var _ = require('underscore');
 _.string = require('underscore.string');
 var Q = require('q');
 var stream = require('stream');
 var path = require('path');
+var json2csv = require('json2csv');
 
 var csv_options = {
 	trim: true,
@@ -13,10 +14,12 @@ var csv_options = {
 
 var agencies = [];
 var pos = [];
+var suppliers = [];
 
 var data_path = path.join(__dirname,'..','/data/');
 var po_files = fs.readdirSync(path.join(data_path,'pos/'));
 var po_reads = [];
+console.log(po_files);
 
 po_files.forEach(function(po_file){
 	if(po_file.substr(-3) == 'csv'){
@@ -53,6 +56,7 @@ po_files.forEach(function(po_file){
 		csv()
 			.from.stream(fixer,csv_options)
 			.on('record', function(row,index){
+				pos.push(row);
 				var agency = _.where(agencies,{ name: row['AGENCY_NAME'] })[0];
 				if(!agency){
 					agency = {
@@ -61,8 +65,19 @@ po_files.forEach(function(po_file){
 					}
 					agencies.push(agency);
 				}
-				delete row['AGENCY_NAME'];
+				// delete row['AGENCY_NAME'];
 				agency.pos.push(row);
+
+				var supplier = _.where(suppliers,{ name: row['SUPPLIER'] })[0];
+				if(!supplier){
+					supplier = {
+						'name': row['SUPPLIER'],
+						'pos': []
+					}
+					suppliers.push(supplier);
+				}
+				// delete row['SUPPLIER'];
+				supplier.pos.push(row);
 			})
 			.on('end',function(count){
 				console.log("Read " + count + " lines from " + po_file);
@@ -78,18 +93,33 @@ po_files.forEach(function(po_file){
 Q.allResolved(po_reads)
 	.then(function(promises){
 		console.log("Done reading files.");
-		agencies.forEach(function(agency){
+		json2csv({data: pos, fields: ['PO_NUMBER','AGENCY_NAME','NIGP_DESCRIPTION','PO_TOTAL_AMOUNT','ORDER_DATE','SUPPLIER','SUPPLIER_FULL_ADDRESS','SUPPLIER_CITY','SUPPLIER_STATE']}, function(err, csv) {
+		  if (err) console.log(err);
+	  	  var filename = path.join(__dirname ,'..','data','pos','all','all.csv');
+		  fs.writeFile(filename, csv, function(err) {
+		    if (err) throw err;
+		    console.log('file saved');
+		  });
+		});
+		/*agencies.forEach(function(agency){
 			var filename = path.join(__dirname ,'..','data','pos','by_agency',_.string.slugify(agency.name) + ".json");
-			console.log(filename);
 			fs.writeFile(filename,JSON.stringify(agency),function(){
 				console.log("Saved " + filename);
 			});
 		});
-		var filename = path.join(__dirname ,'..','data','pos','by_agency','all_by_agency.json');
+		var filename = path.join(__dirname ,'..','data','pos','by_agency','all.json');
 		fs.writeFile(filename,JSON.stringify(agencies),function(){
 			console.log("Saved " + filename);
 		});
-
-
-
+		suppliers.forEach(function(supplier){
+			var filename = path.join(__dirname ,'..','data','pos','by_supplier',_.string.slugify(supplier.name) + ".json");
+			fs.writeFile(filename,JSON.stringify(supplier),function(){
+				console.log("Saved " + filename);
+			});
+		});
+		var filename = path.join(__dirname ,'..','data','pos','by_supplier','all.json');
+		fs.writeFile(filename,JSON.stringify(suppliers),function(err){
+			if(err) throw err;
+			console.log("Saved " + filename);
+		});*/
 	});
