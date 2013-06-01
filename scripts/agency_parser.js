@@ -1,11 +1,15 @@
+//Okay, so this thing is a mess.  TODO: Beautify, and restructure to match current goals.
+
 var fs = require('graceful-fs');
 var csv = require('csv');
 var _ = require('underscore');
-_.string = require('underscore.string');
+// _.string = require('underscore.string');
 var Q = require('q');
 var stream = require('stream');
 var path = require('path');
 var json2csv = require('json2csv');
+var moment = require('moment');
+
 
 var csv_options = {
 	trim: true,
@@ -56,8 +60,10 @@ po_files.forEach(function(po_file){
 		csv()
 			.from.stream(fixer,csv_options)
 			.on('record', function(row,index){
+				var date = new moment(row['ORDER_DATE'],'MM/DD/YYYY');
+				row['ORDER_DATE'] = date.format('YYYY-MM-DD')
 				pos.push(row);
-				var agency = _.where(agencies,{ name: row['AGENCY_NAME'] })[0];
+				/*var agency = _.where(agencies,{ name: row['AGENCY_NAME'] })[0];
 				if(!agency){
 					agency = {
 						'name': row['AGENCY_NAME'],
@@ -77,7 +83,7 @@ po_files.forEach(function(po_file){
 					suppliers.push(supplier);
 				}
 				// delete row['SUPPLIER'];
-				supplier.pos.push(row);
+				supplier.pos.push(row);*/
 			})
 			.on('end',function(count){
 				console.log("Read " + count + " lines from " + po_file);
